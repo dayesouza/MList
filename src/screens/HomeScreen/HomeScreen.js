@@ -1,27 +1,92 @@
-import React from 'react'
-import { Text, View } from 'react-native'
-import { firebase } from '../../firebase/config'
+import React, { useState, useEffect } from "react";
+import {
+  FlatList,
+  Keyboard,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import styles from "./styles";
+import FirebaseService from "../../services/firebaseService";
 
-export default function HomeScreen({navigation, user}) {
+export default function HomeScreen({ navigation, user }) {
+  const [entityText, setEntityText] = useState("");
+  const [entities, setEntities] = useState([]);
+
+  const userID = user.id;
+
+  useEffect(() => {
+    FirebaseService.getDataOrdered(
+      "entities",
+      userID,
+      "createdAt",
+      (dataReceived) => setEntities(dataReceived)
+    );
+  }, []);
+
+  const onAddButtonPress = () => {
+    if (entityText && entityText.length > 0) {
+      const data = {
+        text: entityText,
+        authorID: userID,
+      };
+      FirebaseService.saveData("entities", data)
+        .then((_doc) => {
+          setEntityText("");
+          Keyboard.dismiss();
+        })
+        .catch((error) => {
+          alert(error);
+        });
+    }
+  };
+
+  const renderEntity = ({ item, index }) => {
+    return (
+      <View style={styles.entityContainer}>
+        <Text style={styles.entityText}>
+          {index}. {item.text}
+        </Text>
+      </View>
+    );
+  };
 
   const logoff = () => {
-    firebase.auth().signOut().then(function() {
-      // Sign-out successful.
-      // navigation.navigate('Login');
-      console.log('signed our', user)
-    }).catch(function(error) {
-      // An error happened.
-      console.log('ue erro')
-    });
-  }
-    return (
-        <View>
-          {console.log('home screen',user)}
-          <Text onPress={() => navigation.navigate('Login')}>Log in</Text>
-            <Text>Home Screen</Text>
-            <Text>{user && user.fullName}</Text>
-          <Text onPress={logoff}>Log out</Text>
-
+    firebase
+      .auth()
+      .signOut()
+      .catch(function (error) {
+        console.log("ue erro");
+      });
+  };
+  return (
+    <View style={styles.container}>
+      <View style={styles.formContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Add new entity"
+          placeholderTextColor="#aaaaaa"
+          onChangeText={(text) => setEntityText(text)}
+          value={entityText}
+          underlineColorAndroid="transparent"
+          autoCapitalize="none"
+        />
+        <TouchableOpacity style={styles.button} onPress={onAddButtonPress}>
+          <Text style={styles.buttonText}>Add</Text>
+        </TouchableOpacity>
+      </View>
+      {entities && (
+        <View style={styles.listContainer}>
+          <FlatList
+            data={entities}
+            renderItem={renderEntity}
+            keyExtractor={(item) => item.id}
+            removeClippedSubviews={true}
+          />
         </View>
-    )
+      )}
+      <Text onPress={logoff}>Log out</Text>
+    </View>
+  );
 }
